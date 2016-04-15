@@ -1,4 +1,4 @@
-﻿#Script to bootstrap DSC on an AWS machine
+﻿# Bootstraps DSC on an AWS machine
 [CmdletBinding()]
 param (
     [Parameter(ParameterSetName='ConfigurationSpecified', Mandatory=$true)]
@@ -6,9 +6,9 @@ param (
     [Parameter(ParameterSetName='ConfigurationSpecified')]
     [Hashtable]$ConfigurationArguments = @{},
     [Parameter(ParameterSetName='ConfigurationSpecified', Mandatory=$true)]
-    [string]$ConfigurationFunction = "",
+    [string]$ConfigurationFunction,
     [Parameter(ParameterSetName='ConfigurationSpecified', Mandatory=$true)]
-    [string]$ConfigurationScript = "",
+    [string]$ConfigurationScript,
     [string]$EncryptedProtectedArguments = '',
     [string]$WMFVersion = "latest",
     [string]$ExtensionLocation = "C:\DSCExtension",
@@ -20,31 +20,27 @@ param (
         }
         return $true
     })]
-    [string]$ExtensionVersion = "0.0.0.1"
+    [string]$ExtensionVersion = "0.1.0.0"
 )
 
-<#
-.Synopsis
-    Creates a Settings file using the given public settings, protected settings, sequence number, and configFolder location.
-#>
-function New-DscSettingsFile
-{
+# Creates a settings file for the DSC extension
+function New-DscSettingsFile {
     [CmdletBinding(DefaultParameterSetName='Public')]
     param(
-        [Parameter(ParameterSetName='Public', Position=1)]
-        [Parameter(ParameterSetName='Protected', Position=1)]
+        [Parameter(ParameterSetName = 'Public', Position = 1)]
+        [Parameter(ParameterSetName = 'Protected', Position = 1)]
         [AllowNull()]
         [Hashtable] $PublicSettings = $null,
 
-        [Parameter(ParameterSetName='Public')]
-        [Parameter(ParameterSetName='Protected')]
+        [Parameter(ParameterSetName = 'Public')]
+        [Parameter(ParameterSetName = 'Protected')]
         [int] $SequenceNumber = 0,
 
-        [Parameter(ParameterSetName='Protected', Mandatory=$true)]
+        [Parameter(ParameterSetName = 'Protected', Mandatory = $true)]
         [string] $EncryptedProtectedSettings = '',
 
-        [Parameter(ParameterSetName='Public', Mandatory=$true)]
-        [Parameter(ParameterSetName='Protected', Mandatory=$true)]
+        [Parameter(ParameterSetName = 'Public', Mandatory = $true)]
+        [Parameter(ParameterSetName = 'Protected', Mandatory = $true)]
         [string] $ConfigFolder
     )
 
@@ -64,10 +60,7 @@ function New-DscSettingsFile
         }
 }
 
-<#
-.Synopsis
-    Creates an enviroment for the DSC Extension returns its description as a hashtable
-#>
+# Initializes the enviroment for the DSC extension
 function Initialize-DscEnvironment {
     param (
         [Parameter(Mandatory)]
@@ -109,34 +102,29 @@ function Initialize-DscEnvironment {
     $handlerEnvironment
 }
 
-
-#Check if DSC Extension already downloaded
-$destinationFile = $ExtensionLocation
-if (-not $(Test-Path $destinationFile)) {
-    #Set the execution policy for the machine
-    #Set-ExecutionPolicy RemoteSigned -Force
-
-    #Download DSC Extension from S3 bucket
-    Write-Output "$(Get-Date) Downloading DSC Extension zip from S3 bucket..."
+# Check if DSC Extension already downloaded
+if (-not $(Test-Path $ExtensionLocation)) {
+    # Download DSC Extension
+    Write-Output "$(Get-Date) Downloading DSC extension zip..."
     $zipFile = "C:\DSCExtension.zip"
-    $s3ExtensionLocationBaseURL = "https://s3-us-west-2.amazonaws.com/mspsdsc.cloudwatchdata/"
+    $downloadBaseUrl = "https://github.com/PowerShell/AWSBootStrapper"
     $extensionVersionName = "Microsoft.Powershell.Test.DSC_" + $ExtensionVersion + ".zip"
-    $s3URL = $s3ExtensionLocationBaseURL + $extensionVersionName
-    (New-Object System.Net.WebClient).DownloadFile($s3URL, $zipFile)
+    $downloadUrl = $downloadBaseUrl + '/' + $extensionVersionName
+    (New-Object System.Net.WebClient).DownloadFile($downloadUrl, $zipFile)
 
-    #Extract DSC Extension from zip
-    Write-Output "$(Get-Date) Extracting DSC Extension from zip..."
-    Add-Type -assemblyname System.IO.Compression.FileSystem    
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipFile, $destinationFile)
+    # Extract DSC Extension from zip
+    Write-Output "$(Get-Date) Extracting DSC extension from zip..."
+    Add-Type -AssemblyName System.IO.Compression.FileSystem    
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipFile, $ExtensionLocation)
 
-    #Remove the zip file
+    # Remove the zip file
     Remove-Item $zipFile
 
-    #Create the handler environment
+    # Create the handler environment
     Write-Output "$(Get-Date) Creating the handler environment..."
-    $handlerEnvironment = Initialize-DscEnvironment -DestinationFile $destinationFile
+    $handlerEnvironment = Initialize-DscEnvironment -DestinationFile $ExtensionLocation
 
-    #Create the settings
+    # Create the settings
     New-DscSettingsFile `
         -PublicSettings @{ 
             configuration = @{
@@ -153,6 +141,6 @@ if (-not $(Test-Path $destinationFile)) {
 
 #Run the DSC Extension
 Write-Output "$(Get-Date) Running the DSC extension..."
-cd $destinationFile
-cmd /c ($destinationFile + "\bin\enable.cmd")
+cd $ExtensionLocation
+cmd /c ($ExtensionLocation + "\bin\enable.cmd")
 
