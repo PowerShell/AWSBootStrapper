@@ -2,16 +2,30 @@
 [CmdletBinding()]
 param (
     [Parameter(ParameterSetName='ConfigurationSpecified', Mandatory=$true)]
-    [string]$ConfigurationURL,
+    [string]
+    $ConfigurationURL,
+
     [Parameter(ParameterSetName='ConfigurationSpecified')]
-    [Hashtable]$ConfigurationArguments = @{},
+    [Hashtable]
+    $ConfigurationArguments = @{},
+
     [Parameter(ParameterSetName='ConfigurationSpecified', Mandatory=$true)]
-    [string]$ConfigurationFunction,
+    [string]
+    $ConfigurationFunction,
+
     [Parameter(ParameterSetName='ConfigurationSpecified', Mandatory=$true)]
-    [string]$ConfigurationScript,
-    [string]$EncryptedProtectedArguments = '',
-    [string]$WMFVersion = "latest",
-    [string]$ExtensionLocation = "C:\DSCExtension",
+    [string]
+    $ConfigurationScript,
+
+    [string]
+    $EncryptedProtectedArguments = '',
+
+    [string]
+    $WMFVersion = "latest",
+
+    [string]
+    $ExtensionLocation = "C:\DSCExtension",
+
     [ValidateNotNullOrEmpty()]
     [ValidateScript({ 
         if(-not ($_ -match '^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$' ))
@@ -20,7 +34,12 @@ param (
         }
         return $true
     })]
-    [string]$ExtensionVersion = "0.1.0.0"
+    [string]
+    $ExtensionVersion = "0.1.0.0",
+
+    [ValidateSet('Enable', 'Disable', $null)]
+    [string]
+    $DataCollection
 )
 
 # Creates a settings file for the DSC extension
@@ -124,22 +143,31 @@ if (-not $(Test-Path $ExtensionLocation)) {
     Write-Output "$(Get-Date) Creating the handler environment..."
     $handlerEnvironment = Initialize-DscEnvironment -DestinationFile $ExtensionLocation
 
+    $publicSettings = @{ 
+        configuration = @{
+            url = $ConfigurationURL
+            script = $ConfigurationScript
+            function = $ConfigurationFunction
+        }
+        configurationArguments = $ConfigurationArguments
+        wmfVersion = $WMFVersion
+    }
+
+    if ($DataCollection) {
+        $publicSettings['advancedOptions'] = @{
+            dataCollection = $DataCollection
+        }
+        
+    }
+
     # Create the settings
     New-DscSettingsFile `
-        -PublicSettings @{ 
-            configuration = @{
-                url = $ConfigurationURL
-                script = $ConfigurationScript
-                function = $ConfigurationFunction
-            }
-            configurationArguments = $ConfigurationArguments
-            wmfVersion = $WMFVersion
-        } `
+        -PublicSettings $publicSettings `
         -EncryptedProtectedSettings $EncryptedProtectedArguments `
         -ConfigFolder $handlerEnvironment.configFolder
 }
 
-#Run the DSC Extension
+# Run the DSC Extension
 Write-Output "$(Get-Date) Running the DSC extension..."
 cd $ExtensionLocation
 cmd /c ($ExtensionLocation + "\bin\enable.cmd")
