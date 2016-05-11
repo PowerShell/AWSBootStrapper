@@ -37,6 +37,7 @@ param (
     [string]
     $ExtensionVersion = "0.1.0.0",
 
+    [Parameter(HelpMessage = "Indicates whether to enable or disable telemetry sent to Microsoft. The only possible values are 'Enable' and 'Disable'.")]
     [ValidateSet('Enable', 'Disable', $null)]
     [string]
     $DataCollection
